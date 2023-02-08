@@ -1,0 +1,41 @@
+AlphaGear
+
+- Objectives
+	- Build an AI to play Risk
+	- Allow us to play against it
+	- Integrate it into a web app
+
+- Challenges
+	- Decision complexity
+		- Apply heuristics
+		- Apply constraints
+		- Make adjustments (e.g +1 for conquering, -1 for losing a territory)
+	- Infinite decision space (i.e. an agent could just decide not to do anything)
+	- Not a 2D grid environment (need a directed graph)
+	- Not deterministic (random dice rolls)
+	- Cost to train?
+
+- Workback
+	- De-risk
+		- Build general model
+		- Leverage existing code
+	  - Apply constraints
+
+- Technical:
+	- Train policy actions using a combination of models
+		- NN to identify promising actions
+		- Tree algorithm The MCTS algorithm is an algorithm which for each decision builds a game tree and uses the search statistics to compute a policy over currently available actions, it does not depend on any previously learnt offline knowledge. 
+	- proposed to use Image recognition to determine state environment
+	- What about Large Language models
+		- Take moves and convert to language
+		- Large language models: https://www.deepmind.com/publications/a-generalist-agent
+
+Tactical:
+
+- Create GitHub for research: https://github.com/alecmeade/alpha_gear
+- Do coursera: https://www.coursera.org/specializations/reinforcement-learning 
+- Message Erik on feasibility: size of compute, modifications
+- Basic library: https://gymnasium.farama.org/
+
+
+
