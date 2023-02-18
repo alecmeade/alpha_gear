@@ -1,0 +1,21 @@
+This file is meant to list ideas to address Risk's relatively high game state complexity and branching factor: https://en.wikipedia.org/wiki/Game_complexity
+
+Ideas can be categorized as to whether they will be applied to the 1) Environment, 2) Actions, 3) Rewards, 4) Agents or 5) Other
+
+1) Environment
+  a) Simplify the gameboard to an abstract 2D grid
+  b) Constrain the number of territories and continents
+  
+2) Actions
+  a) Apply heuristics to constrain possible actions prior to stochastics or agent decision making 
+    i) Only attack if bordering territory troop # <= your troop #
+  b) Apply automated rules for non-core actions
+    i) Autotrade cards
+  
+3) Rewards
+  a) Apply marginal rewards at intermediate time steps (e.g. + if you capture a territory, - if you lose a territory) rather than a single massive reward after winning
+  
+4) Other
+  a) Apply Inverse Reinforcement Learning on actual human gameplay from WarGear
+  b) Leverage LLMs
+
