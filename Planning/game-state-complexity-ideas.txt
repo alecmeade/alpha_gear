@@ -19,3 +19,13 @@ Ideas can be categorized as to whether they will be applied to the 1) Environmen
   a) Apply Inverse Reinforcement Learning on actual human gameplay from WarGear
   b) Leverage LLMs
 
+Problems identified in the paper and possible solutions:
+
+I) "The network fails to learn a function that accurately predicts the win rate for the state of the current player. The network behaves more like a classifier for which player will win rather than  returning continuous estimates of how far each state is from winning or losing."
+  - Would 3a) help solve that by teaching tactics?
+ 
+II) "With the low amount of observed learning, it is believed that the state input representation was not sufficient. It lacks the spatial representation of how territories are positioned on the board and their neighbouring relations."
+  - Should we not represent the environment as a flat array, and instead apply 1a) a 2D simplified grid representation?
+
+III) "The Problem with risk is that some decisions can have many legal actions but only a few that are good whereas some have few but similarly good actions. Using the same two parameters for all policies could therefore have limited the algorithm’s flexibility to generate appropriate training data target distributions. "
+  - Need to apply more heuristics to constrain possible actions (2a))
