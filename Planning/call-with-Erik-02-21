@@ -1,0 +1,47 @@
+Things to discuss:
+- Background
+  - Defense agency put our the research topic
+  - They wanted 
+  - I think there 
+
+- Erik still working on it?
+  - No but he would be interested in collaborating with us and having us bounce ideas off of him ("it would be nice to think about RL again")
+
+- How much for the computational resources?
+    - Tens of thousands (?) 
+    - HAd a SLURM cluster
+      - had some nodes (e.g. 32 nodes = 1000 games)
+      - Ran on a desktop computer
+        - But it didn't work very well = needed to parallelize the enviornment
+            - And the most compute heavy step was the game simulation
+        - Look into graph CDN (encode state space as a graph)
+          - Ajacency matrix (could be very expensive NxN - dense representation)
+          - Unless it is fully connected
+        
+- Anything we could do differently?
+    - Neural Netowrk
+      - No hyper parameter tuning of the neural model
+    - State representation 
+      - Graph CDNs ? Can you encode it as a sequence of events - Auto regressive model
+      - He treated with the Markovian assumption
+    - Anything that is easier or harder than normal RL implementations?
+      - Action space and reward estimation was most complicated
+        - Intermediary rewards (troop counts?)
+        - Branching factor 
+          - You could apply a lot of heuristics 
+          - Don't aid the algorithm
+            - If the end goal is a strong agent, then yes but otherwise if you are looking from a research perspective (is no)
+     - DONE DIFFERENTLY
+        - DO A SIMPLE ENVIRONMENT
+    - DO ANYTHING TO BE MORE TENSORFLOW FRIENDLY?
+      - NO - Erik didn't know about this
+      
+- Interest in helping us? Code?
+    - Yes he can send something:
+      - It's not public
+      - It's Python
+
+Action items:
+  - Get library/code from Erik
+  - Read paper about AlphaZero for Starcraft = success (MuStar paper)
+  - Start small

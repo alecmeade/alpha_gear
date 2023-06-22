@@ -1,0 +1,31 @@
+This file is meant to list ideas to address Risk's relatively high game state complexity and branching factor: https://en.wikipedia.org/wiki/Game_complexity
+
+Ideas can be categorized as to whether they will be applied to the 1) Environment, 2) Actions, 3) Rewards, 4) Agents or 5) Other
+
+1) Environment
+  a) Simplify the gameboard to an abstract 2D grid
+  b) Constrain the number of territories and continents
+  
+2) Actions
+  a) Apply heuristics to constrain possible actions prior to stochastics or agent decision making 
+    i) Only attack if bordering territory troop # <= your troop #
+  b) Apply automated rules for non-core actions
+    i) Autotrade cards
+  
+3) Rewards
+  a) Apply marginal rewards at intermediate time steps (e.g. + if you capture a territory, - if you lose a territory) rather than a single massive reward after winning
+  
+4) Other
+  a) Apply Inverse Reinforcement Learning on actual human gameplay from WarGear
+  b) Leverage LLMs
+
+Problems identified in the paper and possible solutions:
+
+I) "The network fails to learn a function that accurately predicts the win rate for the state of the current player. The network behaves more like a classifier for which player will win rather than  returning continuous estimates of how far each state is from winning or losing."
+  - Would 3a) help solve that by teaching tactics?
+ 
+II) "With the low amount of observed learning, it is believed that the state input representation was not sufficient. It lacks the spatial representation of how territories are positioned on the board and their neighbouring relations."
+  - Should we not represent the environment as a flat array, and instead apply 1a) a 2D simplified grid representation?
+
+III) "The Problem with risk is that some decisions can have many legal actions but only a few that are good whereas some have few but similarly good actions. Using the same two parameters for all policies could therefore have limited the algorithm’s flexibility to generate appropriate training data target distributions. "
+  - Need to apply more heuristics to constrain possible actions (2a))
