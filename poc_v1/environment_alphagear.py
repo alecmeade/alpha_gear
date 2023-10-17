@@ -12,16 +12,52 @@ class RiskEnvironmentPOC(environment.BaseEnvironment):
         self.count = 0
         
     def env_init(self, env_info):
-        # users set this up
         """Setup for the environment called when the experiment first starts.
 
         Note:
             Initialize a tuple with the reward, first state observation, boolean
             indicating if it's terminal.
+            
+            Initializes the action_map
         """
-        self.state = np.array([0, np.zeros(env_info['states']), False]) #reward, state init, boolean
-        # number of states - should be a perfect square                 
-        # Does not need to return anything
+        # number of states - should be a perfect square for this setup
+        self.state = [0, np.zeros(env_info['states']), False] #reward, state init, boolean
+        dim = env_info['states']**0.5
+        self.dim = dim #note - this could be optimized
+        #print("dim is: " + str(dim))
+        
+        # number of actions
+        self.num_actions = env_info["num_actions"]
+        
+        # initialize the action_map
+        """ 
+        from action_num, determine the territory [from , to, itself?]
+        """
+        self.action_map = {}
+
+        '''
+        E.g. with state dimension of 25...
+        [0] [1] [2] [3] [4]
+        [5] [6] [7] [8] [9]
+        [10][11][12][13][14]
+        [15][16][17][18][19]
+        [20][21][22][23][24]
+        '''
+        # [From, To, out_of_bounds]
+        if self.num_actions == 4:
+            for i in range(env_info['states']):
+                # each territory has 4 actions from each state: up, down, left, right & 1 action which is do nothing
+                # if out of bounds, then it doesn't do anything
+                self.action_map[i*self.num_actions] = [i, i-dim, False] if i-dim >= 0 else [i, i, True] # up
+                self.action_map[i*self.num_actions + 1] = [i, i+dim, False] if i+dim < env_info['states'] else [i, i, True] # down
+                self.action_map[i*self.num_actions + 2] = [i, i-1, False] if (i)%dim != 0 else [i, i, True] # left
+                self.action_map[i*self.num_actions + 3] = [i, i+1, False] if (i)%dim != (dim-1) else [i, i, True] # right
+            self.action_map[i*self.num_actions + 4] = [i, i, True] # do nothing    
+
+        else:
+            raise ValueError("Incorrect number of actions passed")
+        # print(self.action_map)
+        
     
     def env_start(self):
         """The first method called when the experiment starts, called before the
@@ -68,26 +104,36 @@ class RiskEnvironmentPOC(environment.BaseEnvironment):
         # initialize
         terminal = False
         reward = 0.0
-        observation = action_state(self.state[1], action, len(self.state[1])*5) # state from dynamics
+        last_state = np.array(self.state[1].copy()) #need copy because self.state[1] changes after assignment
+        
+        observation = action_state(self.state[1], action, self.num_actions, self.action_map) # state from dynamics
         #############
         
         # use the above observations to decide what the reward will be, and if the agent is in a terminal state.
         
         #############
         # Reward function
+        current_state = np.array(observation)
         
-        # In this simple implementation (where + numbers represent the agents territories, the game is over when all numbers in the grid are positive)
-        comparison = np.where(observation < 0, observation, 0) == np.zeros(len(self.state[1])) # True if no negatives
-
-        if comparison.all():
-            # agent wins                
-            terminal = True
+        # + Reward if a territory is captured        
+        comparison_last = (np.where(current_state < 0, current_state, 0) != np.where(last_state < 0, last_state, 0)).any() 
+        
+        if comparison_last:
             reward += 1
+        
+        # Determine if terminal
+        # In this simple implementation (where + numbers represent the agents territories, the game is over when all grid numbers are +ve)
+        comparison_terminal = (np.where(observation < 0, observation, 0) == np.zeros(len(self.state[1]))).all() # True if no negatives
+
+        if comparison_terminal:
+            # agent wins
+            terminal = True
+            reward += 100
          
         else: 
             # continue
             terminal = False
-            reward += 0.0
+            reward += -0.5 # most random games take no more than 1000 steps
         #############
         
         self.state[0] = reward
@@ -104,28 +150,3 @@ class RiskEnvironmentPOC(environment.BaseEnvironment):
     def env_message(self):
         return None
     
-    def env_print_state(self):
-        dim = int(np.sqrt(len(self.state[1])))
-        grid = self.state[1].reshape((dim,dim), order = "C")
-
-        # determine who owns which territories
-        player_squares = np.zeros(len(self.state[1]))
-        for i in range(len(player_squares)):
-            if self.state[1][i] > 0:
-                player_squares[i] = 1
-            else:
-                player_squares[i] = 0
-        grid_player = player_squares.reshape((dim,dim), order = "C")
-        
-        cmap = ListedColormap(['blue', 'grey']) # player colors
-        ax = sns.heatmap(grid_player, cmap=cmap, annot=grid, cbar=False)
-        
-        #plot the borders
-        for i in range(grid.shape[1]+1):
-            if (i == int(dim/2+1)) or (i == int(dim/2)):  
-                ax.axvline(i, color='white', lw=2)
-                ax.axhline(i, color='white', lw=2)
-
-        plt.xticks(np.arange(0, dim+1, 1.0))
-        plt.yticks(np.arange(0, dim+1, 1.0))
-        plt.show()

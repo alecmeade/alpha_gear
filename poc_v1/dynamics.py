@@ -16,38 +16,22 @@ from random import randrange
 # no fortify step
 # attack goes to completion
 
-def action_state(state, action_num, num_actions):
+def action_state(state, action_num, num_actions, action_map):
     
-    # from action_num, determine the territory [from , to, itself?]
-    action_map = {}
-    
-    '''
-    [0] [1] [2] [3] [4]
-    [5] [6] [7] [8] [9]
-    [10][11][12][13][14]
-    [15][16][17][18][19]
-    [20][21][22][23][24]
-    '''
-    
-    dim = int((len(state))**0.5)
-
-    for i in range(len(state)):
-        # each territory has 5 actions: up, down, left, right, do nothing
-        # if out of bounds, then it doesn't do anything
-        action_map[i*dim] = [i, i-dim, False] if i-dim >= 0 else [i, i, True] # up
-        action_map[i*dim + 1] = [i, i+dim, False] if i+dim < len(state) else [i, i, True] # down
-        action_map[i*dim + 2] = [i, i-1, False] if (i)%dim != 0 else [i, i, True] # left
-        action_map[i*dim + 3] = [i, i+1, False] if (i)%dim != (dim-1) else [i, i, True] # right
-        action_map[i*dim + 4] = [i, i, True] # do nothing    
-    assert len(action_map) == num_actions
+    from_territory = int(action_map[action_num][0])
+    to_territory = int(action_map[action_num][1])
+    action_status = action_map[action_num][2]
     
     # conditions to see if you can proceed
-    condition_ownership = state[action_map[action_num][0]] > 0  # if the territory is owned by you (i.e. it has positive troops)
-    condition_enemy = state[action_map[action_num][1]] < 0      # if the territory you are attacking is not owned by you
-    condition_valid = action_map[action_num][2] != True         # if the attack action is valid (i.e. not 'do nothing')
+    condition_ownership = state[from_territory] > 0  # if the territory you are attacking from is owned by you (i.e. it has positive troops)
+    condition_enemy = state[to_territory] < 0      # if the territory you are attacking is not owned by you
+    condition_valid = action_status != True         # if the attack action is valid (i.e. not 'do nothing' or at border)
     
-    # place troops
-    if condition_ownership:
+    # place troops - don't place troops if doing nothing or if the territory has already exceeded the maximum troops 
+    max_troops = 30
+    condition_max_troops = state[from_territory] < max_troops
+    
+    if condition_ownership and condition_valid and condition_max_troops:
         state = place(state, action_map[action_num][0])
     
     # attack (if relevant)
@@ -61,10 +45,11 @@ def action_state(state, action_num, num_actions):
 # PLACE
 def place(state, territory):
     # placing troops
-    # check if they have a bonus group +2
+    # check if they have a group to apply a bonus amount
     # +3 to attacking territory
     
     amount = 3
+    bonus_amount = 5
             
     # Provides +2 bonus if all territories in the corner 2x2 are owned
     # NOTE: assumes C type (left to right) ordering of the grid
@@ -72,16 +57,16 @@ def place(state, territory):
 
     # top left corner
     if (state[0] > 0) & (state[0 + 1] > 0) & (state[dim] > 0) & (state[dim+1] > 0):
-        amount += 2
+        amount += bonus_amount
     # top right corner
     if (state[dim-2] > 0) & (state[dim-1] > 0) & (state[2*dim-2] > 0) & (state[2*dim-1] > 0):
-        amount += 2
+        amount += bonus_amount
     # bottom left corner
     if (state[(dim-2)*(dim)] > 0) & (state[(dim-2)*(dim)+1] > 0) & (state[(dim-1)*(dim)] > 0) & (state[(dim-1)*(dim)+1] > 0):
-        amount += 2
+        amount += bonus_amount
     # bottom right corner
     if (state[(dim-1)*(dim)-2] > 0) & (state[(dim-1)*(dim)-1] > 0) & (state[(dim)*(dim)-2] > 0) & (state[(dim)*(dim)-1] > 0):
-        amount += 2
+        amount += bonus_amount
         
     state[territory] += amount
     
@@ -93,10 +78,10 @@ def attack(state, action_num, action_map):
     # Logic for the attack, in part based on this https://github.com/attoPascal/risk-simulator/blob/master/risk.py
     # Stipulations: a) it plays through the entire attack, b) you must move all troops
     
-    attacking_territory = action_map[action_num][0]
-    remaining_attacking_amount = state[attacking_territory]
-    defending_territory = action_map[action_num][1]
-    remaining_defending_amount = abs(state[defending_territory])
+    from_territory = int(action_map[action_num][0])
+    to_territory = int(action_map[action_num][1])
+    remaining_attacking_amount = state[from_territory]
+    remaining_defending_amount = abs(state[to_territory])
     
     if remaining_attacking_amount <= 0:
         raise ValueError('Error: must attack with a positive amount')
@@ -121,13 +106,13 @@ def attack(state, action_num, action_map):
     # attacker wins
     if(remaining_attacking_amount>1):
         #mandatory transfer of troops
-        state[attacking_territory] = 1
-        state[defending_territory] = (remaining_attacking_amount-1)
+        state[from_territory] = 1
+        state[to_territory] = (remaining_attacking_amount-1)
 
     else:
         # defender wins
-        state[attacking_territory] = remaining_attacking_amount
-        state[defending_territory] = (remaining_defending_amount)*-1 #correct for abs, opponent has '-' troops 
+        state[from_territory] = remaining_attacking_amount
+        state[to_territory] = (remaining_defending_amount)*-1 #correct for abs, opponent has '-' troops 
         
     return state
 

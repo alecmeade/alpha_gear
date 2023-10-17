@@ -10,17 +10,26 @@ from copy import deepcopy
 class ActionValueNetwork:
     """
     Creates a function approximation to determine action values
+    
+    Key arg: number of hidden layers
+    
     """
 
     def __init__(self, network_config):
         self.state_dim = network_config.get("state_dim")
         self.num_hidden_units = network_config.get("num_hidden_units")
+        self.num_hidden_layers = network_config.get("num_hidden_layers")     
         self.num_actions = network_config.get("num_actions")
         
-        self.rand_generator = np.random.RandomState(network_config.get("seed"))
+        self.rand_generator = np.random.RandomState() # network_config.get("seed")
         
         # Specify self.layer_sizes which shows the number of nodes in each layer
-        self.layer_sizes = [self.state_dim, self.num_hidden_units, self.num_actions]        
+        if self.num_hidden_layers == 1:
+            self.layer_sizes = [self.state_dim, self.num_hidden_units, self.num_actions]
+        elif self.num_hidden_layers == 2:
+            self.layer_sizes = [self.state_dim, self.num_hidden_units, self.num_hidden_units, self.num_actions]
+        else:
+            raise ValueError('Not built to handle more than 2 hidden layers')
         
         # Initialize the weights of the neural network
         # self.weights is an array of dictionaries with each dictionary corresponding to 
@@ -28,7 +37,8 @@ class ActionValueNetwork:
         self.weights = [dict() for i in range(0, len(self.layer_sizes) - 1)]
         for i in range(0, len(self.layer_sizes) - 1):
             self.weights[i]['W'] = self.init_saxe(self.layer_sizes[i], self.layer_sizes[i + 1])
-            self.weights[i]['b'] = np.zeros((1, self.layer_sizes[i + 1]))
+            self.weights[i]['b'] = np.zeros((1, self.layer_sizes[i + 1])) 
+            #self.weights[i]["b"] = self.rand_generator.normal(loc = 0, scale = (2/self.layer_sizes[i])**0.5, size = (1, self.layer_sizes[i+1]))
     
     def get_action_values(self, s):
         """
@@ -38,12 +48,24 @@ class ActionValueNetwork:
             The action-values (Numpy array) calculated using the network's weights.
         """
         
-        W0, b0 = self.weights[0]['W'], self.weights[0]['b'] # 0 refers to the hidden layer
-        psi = np.dot(s, W0) + b0 # THESE TWO LINES ARE THE RELU FUNCTION
+        W0, b0 = self.weights[0]['W'], self.weights[0]['b']
+        psi = np.dot(s, W0) + b0 
         x = np.maximum(psi, 0) 
         
         W1, b1 = self.weights[1]['W'], self.weights[1]['b']
-        q_vals = np.dot(x, W1) + b1
+        
+        if self.num_hidden_layers == 1:
+            q_vals = np.dot(x, W1) + b1
+        
+        elif self.num_hidden_layers == 2:
+            psi_2 = np.dot(x, W1) + b1 
+            x_2 = np.maximum(psi_2, 0) 
+
+            W2, b2 = self.weights[2]['W'], self.weights[2]['b']            
+            q_vals = np.dot(x_2, W2) + b2
+        
+        else:
+            raise ValueError('Not built to handle more than 2 hidden layers')
 
         return q_vals
     
@@ -57,51 +79,118 @@ class ActionValueNetwork:
         Returns:
             The TD update (Array of dictionaries with gradient times TD errors) for the network's weights
         """
+        if self.num_hidden_layers == 1:
+            
+            W0, b0 = self.weights[0]['W'], self.weights[0]['b']
+            W1, b1 = self.weights[1]['W'], self.weights[1]['b']
 
-        W0, b0 = self.weights[0]['W'], self.weights[0]['b']
-        W1, b1 = self.weights[1]['W'], self.weights[1]['b']
-        
-        psi = np.dot(s, W0) + b0 #NEXT THREE LINES ARE KNOWN FROM THE RELU FUNCTION
-        x = np.maximum(psi, 0)
-        dx = (psi > 0).astype(float)
+            psi = np.dot(s, W0) + b0 #NEXT THREE LINES ARE KNOWN FROM THE RELU FUNCTION
+            x = np.maximum(psi, 0)
+            dx = (psi > 0).astype(float)
 
-        # td_update has the same structure as self.weights, that is an array of dictionaries.
-        # td_update[0]["W"], td_update[0]["b"], td_update[1]["W"], and td_update[1]["b"] have the same shape as 
-        # self.weights[0]["W"], self.weights[0]["b"], self.weights[1]["W"], and self.weights[1]["b"] respectively
-        td_update = [dict() for i in range(len(self.weights))]
-         
-        # TD UPDATE for  THE OUTPUT WEIGHTS
-        v = delta_mat 
-        td_update[1]['W'] = np.dot(x.T, v) * 1. / s.shape[0]
-        td_update[1]['b'] = np.sum(v, axis=0, keepdims=True) * 1. / s.shape[0] # shape represents the length and number of states (to normalize probability)
-        
-        # TD UPDATE for THE FIRST LAYER WEIGHTS
-        v = np.dot(v, W1.T) * dx
-        td_update[0]['W'] = np.dot(s.T, v) * 1. / s.shape[0]
-        td_update[0]['b'] = np.sum(v, axis=0, keepdims=True) * 1. / s.shape[0]
-                
+            # td_update has the same structure as self.weights, that is an array of dictionaries.
+            # td_update[0]["W"], td_update[0]["b"], td_update[1]["W"], and td_update[1]["b"] have the same shape as 
+            # self.weights[0]["W"], self.weights[0]["b"], self.weights[1]["W"], and self.weights[1]["b"] respectively
+            td_update = [dict() for i in range(len(self.weights))]
+
+            # TD UPDATE for  THE OUTPUT WEIGHTS
+            v = delta_mat 
+            td_update[1]['W'] = np.dot(x.T, v) * 1. / s.shape[0]
+            td_update[1]['b'] = np.sum(v, axis=0, keepdims=True) * 1. / s.shape[0] # shape represents the length and number of states (to normalize probability)
+
+            # TD UPDATE for THE FIRST LAYER WEIGHTS
+            v = np.dot(v, W1.T) * dx
+            td_update[0]['W'] = np.dot(s.T, v) * 1. / s.shape[0]
+            td_update[0]['b'] = np.sum(v, axis=0, keepdims=True) * 1. / s.shape[0]
+
+        elif self.num_hidden_layers == 2:
+            
+            # WITH TWO HIDDEN LAYERS
+
+            W0, b0 = self.weights[0]['W'], self.weights[0]['b']
+            W1, b1 = self.weights[1]['W'], self.weights[1]['b']
+            W2, b2 = self.weights[2]['W'], self.weights[2]['b']
+
+            psi_0 = np.dot(s, W0) + b0 
+            x_0 = np.maximum(psi_0, 0)
+            dx_0 = (psi_0 > 0).astype(float)
+
+            psi_1 = np.dot(x_0, W1) + b1 
+            x_1 = np.maximum(psi_1, 0)
+            dx_1 = (psi_1 > 0).astype(float)
+            
+            # td_update has the same structure as self.weights, that is an array of dictionaries.
+            # td_update[0]["W"], td_update[0]["b"], td_update[1]["W"], and td_update[1]["b"] have the same shape as 
+            # self.weights[0]["W"], self.weights[0]["b"], self.weights[1]["W"], and self.weights[1]["b"] respectively
+            td_update = [dict() for i in range(len(self.weights))]
+
+            # TD UPDATE FOR THE SECOND HIDDEN LAYER -> THE OUTPUT WEIGHTS 
+            v = delta_mat 
+            td_update[2]['W'] = np.dot(x_1.T, v) * 1. / s.shape[0]
+            td_update[2]['b'] = np.sum(v, axis=0, keepdims=True) * 1. / s.shape[0] # shape represents the length and number of states (to normalize probability)
+
+            # TD UPDATE for THE FIRST HIDDEN LAYER WEIGHTS
+            v = np.dot(v, W2.T) * dx_1
+            td_update[1]['W'] = np.dot(x_0.T, v) * 1. / s.shape[0]
+            td_update[1]['b'] = np.sum(v, axis=0, keepdims=True) * 1. / s.shape[0]
+
+            # TD UPDATE for THE FIRST LAYER WEIGHTS
+            v = np.dot(v, W1.T) * dx_0
+            td_update[0]['W'] = np.dot(s.T, v) * 1. / s.shape[0]
+            td_update[0]['b'] = np.sum(v, axis=0, keepdims=True) * 1. / s.shape[0]
+            
+        else:
+            raise ValueError('Not built to handle more than 2 hidden layers')
+
         return td_update
+    
     
     # Work Required: No. You may wish to read the relevant paper for more information on this weight initialization
     # (Exact solutions to the nonlinear dynamics of learning in deep linear neural networks by Saxe, A et al., 2013)
+    
     def init_saxe(self, rows, cols):
         """
+        Description and notes:
+        # Don't want to initialize any 0 weights
+        # Weights that are initalized too large result in variance
+        # weights that are initalized too small result in too slow training time
+        
+        Recommended initialization of the weights of layer l is Xavier initialization: 
+        I.e. picked from a normal distribution with mean = 0 and variance of either 
+            A: (1/ (num of neurons in layer l-1)) 
+            or 
+            B: (2/(neurons in layer l-1 + neurons in layer l))
+        
         Args:
             rows (int): number of input units for layer.
-            cols (int): number of output units for layer.
+            cols (int): number of output units for layer (corresponding to the input units of the next layer).
         Returns:
             NumPy Array consisting of weights for the layer based on the initialization in Saxe et al.
         """
-        tensor = self.rand_generator.normal(0, 1, (rows, cols))
-        if rows < cols:
-            tensor = tensor.T
-        tensor, r = np.linalg.qr(tensor)
-        d = np.diag(r, 0)
-        ph = np.sign(d)
-        tensor *= ph
+        Saxe_init = False # note: not working well... hence standard init
+        
+        if Saxe_init:
+            # Note this method didn't seem to work too well, it always resulted in vanishing values at the bottom right of the matrix
+            tensor = self.rand_generator.normal(0.9, 1, (rows, cols)) #args = mean, standard deviation, size
+            if rows < cols:
+                tensor = tensor.T
+            tensor, r = np.linalg.qr(tensor) # Factor the matrix a as qr, where q is orthonormal and r is upper-triangular.
+            d = np.diag(r, 0)
+            ph = np.sign(d)
+            tensor *= ph
+            if rows < cols:
+                tensor = tensor.T
+        else:
+            ### Initialize self.weights[i]["W"] and self.weights[i]["b"] using self.rand_generator.normal()
+            # Note don't do it for b weights here
+            # Note that The parameters of self.rand_generator.normal are mean of the distribution, 
+            # standard deviation of the distribution, and output shape in the form of tuple of integers.
+            # To specify output shape, use self.layer_sizes.
 
-        if rows < cols:
-            tensor = tensor.T
+            # ----------------
+            tensor = self.rand_generator.normal(loc = 0, scale = (2/rows)**0.5, size = (rows, cols))
+            # ----------------
+            
         return tensor
     
     def get_weights(self):
@@ -155,6 +244,7 @@ class Adam():
         for i in range(len(weights)):
             for param in weights[i].keys():
                 ### update self.m and self.v
+                
                 self.m[i][param] = self.beta_m * self.m[i][param] + (1 - self.beta_m) * \
                     td_errors_times_gradients[i][param]
                 self.v[i][param] = self.beta_v * self.v[i][param] + (1 - self.beta_v) * \
@@ -188,7 +278,7 @@ class ReplayBuffer:
     where the transitions are learned to be represented with a fixed set of parameters or weights.
     """
 
-    def __init__(self, size, minibatch_size, seed):
+    def __init__(self, size, minibatch_size): #, seed
         """
         Args:
             size (integer): The size of the replay buffer.              
@@ -197,7 +287,7 @@ class ReplayBuffer:
         """
         self.buffer = []
         self.minibatch_size = minibatch_size
-        self.rand_generator = np.random.RandomState(seed)
+        self.rand_generator = np.random.RandomState() #seed
         self.max_size = size
 
     def append(self, state, action, reward, terminal, next_state):
@@ -225,9 +315,11 @@ class ReplayBuffer:
         return len(self.buffer)
     
 
-def softmax(action_values, tau=0.001):
+def softmax(action_values, tau):
     """
     Returns action probabilities from softmax func
+    
+    The higher tau, the more random
     """
     preferences = action_values / tau
     max_preference = np.max(preferences, axis = 1).reshape((-1, 1))
